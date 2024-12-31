@@ -45,10 +45,43 @@ const QuestionSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    creator: {
+      type: mongoose.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    likes: [
+      {
+        type: mongoose.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    favorites: [
+      {
+        type: mongoose.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    reports: [
+      {
+        type: mongoose.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    solvedLater: [
+      {
+        type: mongoose.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     createdAt: {
       type: Date,
       default: Date.now,
     },
+  },
+  {
+    timestamps: true, // Adds updatedAt along with createdAt
+    runValidators: true,
   },
   {
     // Enable additional validation

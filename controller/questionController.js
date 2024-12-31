@@ -1,3 +1,8 @@
+const mongoose = require("mongoose");
+
+const User = require("../model/user_modal");
+const HttpError = require("../utils/HttpError");
+
 const Question = require("../model/question_modal");
 async function create(req, res, next) {
   try {
@@ -10,6 +15,7 @@ async function create(req, res, next) {
       subject,
       topic,
       exam,
+      creator,
     } = req.body;
 
     // Validate that correctAnswer is one of the options
@@ -28,12 +34,37 @@ async function create(req, res, next) {
       subject,
       topic,
       exam,
+      creator: creator,
+      favorites: [],
+      likes: [],
+      reports: [],
+      solvedLater: [],
     });
 
-    const savedQuestion = await newQuestion.save();
-    res
-      .status(201)
-      .json({ message: "Questions created sucessfully", savedQuestion });
+    let findedUser;
+
+    try {
+      findedUser = await User.findById(newQuestion.creator);
+    } catch (err) {
+      new HttpError("Something went wrong, Please try again later.");
+    }
+
+    if (!findedUser) {
+      return new HttpError("Couldn't find user with this provided id.");
+    }
+
+    try {
+      const sess = await mongoose.startSession();
+      sess.startTransaction();
+      await newQuestion.save({ session: sess });
+      findedUser.questions.push(newQuestion);
+      await findedUser.save({ session: sess });
+      await sess.commitTransaction();
+    } catch (err) {
+      new HttpError("Something went wrong, Please try again later.");
+    }
+
+    res.status(201).json({ message: "Questions created sucessfully" });
   } catch (error) {
     res.status(400).json({
       error: error.message,
@@ -53,9 +84,8 @@ async function getQuestions(req, res, next) {
     if (topic) filter.topic = topic;
     if (exam) filter.exam = exam;
 
-    const questions = await Question.find(filter);
-
-    console.log(questions);
+    // Add sort to show newest questions first
+    const questions = await Question.find(filter).sort({ createdAt: -1 });
 
     res.json({ questions });
   } catch (error) {
@@ -137,13 +167,22 @@ async function updateQuestions(req, res, next) {
 
 async function deleteQuestion(req, res, next) {
   try {
-    const deletedQuestion = await Question.findByIdAndDelete(req.params.id);
+    const deletedQuestion = await Question.findById(req.params.id).populate(
+      "creator"
+    );
 
     if (!deletedQuestion) {
       return res.status(404).json({
         error: "Question not found",
       });
     }
+
+    const sess = await mongoose.startSession();
+    sess.startTransaction();
+    await deletedQuestion.deleteOne({ session: sess });
+    deletedQuestion.creator.questions.pull(deletedQuestion);
+    await deletedQuestion.creator.save({ session: sess });
+    await sess.commitTransaction();
 
     res.json({
       message: "Question deleted successfully",

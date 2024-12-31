@@ -3,13 +3,9 @@ const bcrypt = require("bcryptjs");
 const HttpError = require("../utils/HttpError");
 const User = require("../model/user_modal");
 const { validationResult } = require("express-validator");
+const Question = require("../model/question_modal");
 
 async function signup(req, res, next) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return next(new HttpError("Invalid user credentials", 401));
-  }
-
   const { name, email, password } = req.body;
 
   let hashedPassword;
@@ -29,7 +25,14 @@ async function signup(req, res, next) {
     name,
     email,
     password: hashedPassword,
+    favoriteQuestions: [],
+    laterSolvedQuestions: [],
+    likedQuestions: [],
+    questions: [],
+    reportedQuestions: [],
+    wrongAnsweredQuestions: [],
   });
+
   try {
     await createdUser.save();
   } catch (err) {
@@ -77,6 +80,7 @@ async function login(req, res, next) {
       )
     );
   }
+
 
   let comparePassword;
   try {
